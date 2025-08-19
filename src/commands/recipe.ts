@@ -2,18 +2,10 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs/promises';
-import { QuicClient } from '../client/QuicClient';
-import { loadConfig, loadPersonKeys } from '../config';
+import { createProfileClient } from '../client/ProfileAwareClient';
 
-async function createClient(): Promise<QuicClient> {
-  const config = await loadConfig();
-  const client = new QuicClient(config.client);
-  await client.connect();
-  
-  const personKeys = await loadPersonKeys();
-  await client.authenticate(personKeys);
-  
-  return client;
+async function createClient(profileAlias?: string): Promise<any> {
+  return createProfileClient(profileAlias);
 }
 
 export const recipeCommand = new Command('recipe')
@@ -24,6 +16,7 @@ recipeCommand
   .description('Register a new recipe (data structure definition)')
   .option('-f, --file <path>', 'Path to recipe JSON file')
   .option('-i, --inline <json>', 'Inline JSON recipe definition')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (options) => {
     const spinner = ora('Registering recipe...').start();
     
@@ -40,7 +33,7 @@ recipeCommand
         process.exit(1);
       }
       
-      const client = await createClient();
+      const client = await createClient(options.profile);
       const result = await client.registerRecipe(recipe);
       await client.disconnect();
       
@@ -60,13 +53,14 @@ recipeCommand
 recipeCommand
   .command('list')
   .description('List registered recipes (data structures)')
-  .option('-c, --category <category>', 'Filter by category')
+  .option('-t, --type <recipeType>', 'Filter by recipe type (what Recipe defines these recipes)')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (options) => {
     const spinner = ora('Fetching recipes...').start();
     
     try {
-      const client = await createClient();
-      const result = await client.listRecipes(options.category);
+      const client = await createClient(options.profile);
+      const result = await client.listRecipes(options.type);
       await client.disconnect();
       
       spinner.succeed(`Found ${result.count} recipes`);
@@ -74,19 +68,21 @@ recipeCommand
       if (options.parent?.parent?.opts().json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        const categories = new Map<string, any[]>();
+        // Group recipes by their recipe type
+        const byRecipeType = new Map<string, any[]>();
         
         result.recipes.forEach((recipe: any) => {
-          if (!categories.has(recipe.category)) {
-            categories.set(recipe.category, []);
+          const recipeType = recipe.$recipe$ || 'Recipe';
+          if (!byRecipeType.has(recipeType)) {
+            byRecipeType.set(recipeType, []);
           }
-          categories.get(recipe.category)!.push(recipe);
+          byRecipeType.get(recipeType)!.push(recipe);
         });
         
-        categories.forEach((recipes, category) => {
-          console.log(chalk.cyan(`\n${category}:`));
+        byRecipeType.forEach((recipes, recipeType) => {
+          console.log(chalk.cyan(`\nRecipes defined by ${recipeType}:`));
           recipes.forEach(recipe => {
-            console.log(`  ${chalk.green(recipe.name)} (${recipe.type}) - ${recipe.description}`);
+            console.log(`  ${chalk.green(recipe.$type$)} - ${recipe.description || 'No description'}`);
             if (recipe.properties) {
               console.log(`    Properties: ${Object.keys(recipe.properties).join(', ')}`);
             }
@@ -103,11 +99,12 @@ recipeCommand
   .command('get')
   .description('Get recipe definition (data structure)')
   .argument('<name>', 'Recipe name')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (name, options) => {
     const spinner = ora('Fetching recipe...').start();
     
     try {
-      const client = await createClient();
+      const client = await createClient(options.profile);
       const result = await client.getRecipe(name);
       await client.disconnect();
       
@@ -117,10 +114,9 @@ recipeCommand
         console.log(JSON.stringify(result, null, 2));
       } else {
         const recipe = result.recipe;
-        console.log(chalk.cyan('Recipe:'), recipe.name);
-        console.log(chalk.cyan('Type:'), recipe.type);
-        console.log(chalk.cyan('Description:'), recipe.description);
-        console.log(chalk.cyan('Category:'), recipe.category);
+        console.log(chalk.cyan('Recipe Type:'), recipe.$type$);
+        console.log(chalk.cyan('Defined by Recipe:'), recipe.$recipe$ || 'Recipe');
+        console.log(chalk.cyan('Description:'), recipe.description || 'No description');
         
         if (recipe.properties) {
           console.log(chalk.cyan('\nProperties (Data Structure):'));

@@ -185,6 +185,13 @@ export class QuicClient extends EventEmitter {
     });
   }
 
+  async listObjects(type: string, options?: { filter?: string; limit?: number; offset?: number }): Promise<any> {
+    return this.sendRequest(MessageType.LIST_REQUEST, {
+      type,
+      ...options
+    });
+  }
+
   async registerRecipe(recipe: any): Promise<any> {
     return this.sendRequest(MessageType.RECIPE_REGISTER, {
       recipe
@@ -197,9 +204,9 @@ export class QuicClient extends EventEmitter {
     });
   }
 
-  async listRecipes(category?: string): Promise<any> {
+  async listRecipes(recipeType?: string): Promise<any> {
     return this.sendRequest(MessageType.RECIPE_LIST, {
-      category
+      recipeType
     });
   }
 
@@ -211,6 +218,26 @@ export class QuicClient extends EventEmitter {
 
   async unsubscribe(): Promise<void> {
     await this.sendRequest(MessageType.STREAM_UNSUBSCRIBE, {});
+  }
+
+  async createProfile(profile: any): Promise<any> {
+    return this.sendRequest(MessageType.PROFILE_CREATE, profile);
+  }
+
+  async getProfile(query: { profileId?: string; alias?: string }): Promise<any> {
+    return this.sendRequest(MessageType.PROFILE_GET, query);
+  }
+
+  async updateProfile(request: any): Promise<any> {
+    return this.sendRequest(MessageType.PROFILE_UPDATE, request);
+  }
+
+  async deleteProfile(profileId: string): Promise<any> {
+    return this.sendRequest(MessageType.PROFILE_DELETE, { profileId });
+  }
+
+  async listProfiles(filter?: any): Promise<any> {
+    return this.sendRequest(MessageType.PROFILE_LIST, filter || {});
   }
 
   async disconnect() {

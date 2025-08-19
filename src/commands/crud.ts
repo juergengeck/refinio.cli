@@ -2,18 +2,10 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs/promises';
-import { QuicClient } from '../client/QuicClient';
-import { loadConfig, loadPersonKeys } from '../config';
+import { createProfileClient } from '../client/ProfileAwareClient';
 
-async function createClient(): Promise<QuicClient> {
-  const config = await loadConfig();
-  const client = new QuicClient(config.client);
-  await client.connect();
-  
-  const personKeys = await loadPersonKeys();
-  await client.authenticate(personKeys);
-  
-  return client;
+async function createClient(profileAlias?: string): Promise<any> {
+  return createProfileClient(profileAlias);
 }
 
 const createCommand = new Command('create')
@@ -21,6 +13,7 @@ const createCommand = new Command('create')
   .argument('<type>', 'Object type')
   .option('-d, --data <path>', 'Path to JSON data file')
   .option('-i, --inline <json>', 'Inline JSON data')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (type, options) => {
     const spinner = ora('Creating object...').start();
     
@@ -36,7 +29,7 @@ const createCommand = new Command('create')
         process.exit(1);
       }
       
-      const client = await createClient();
+      const client = await createClient(options.profile);
       const result = await client.createObject(type, data);
       await client.disconnect();
       
@@ -58,11 +51,12 @@ const getCommand = new Command('get')
   .description('Get an object by ID')
   .argument('<id>', 'Object ID')
   .option('-v, --version <version>', 'Specific version')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (id, options) => {
     const spinner = ora('Fetching object...').start();
     
     try {
-      const client = await createClient();
+      const client = await createClient(options.profile);
       const result = await client.readObject(id, options.version);
       await client.disconnect();
       
@@ -71,7 +65,13 @@ const getCommand = new Command('get')
       if (options.parent?.opts().json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log(result.data);
+        console.log(chalk.cyan('Object Details:'));
+        console.log(JSON.stringify(result.data, null, 2));
+        console.log(chalk.gray('Version:'), result.version);
+        console.log(chalk.gray('Created:'), new Date(result.created).toLocaleString());
+        if (result.modified) {
+          console.log(chalk.gray('Modified:'), new Date(result.modified).toLocaleString());
+        }
       }
     } catch (error: any) {
       spinner.fail(error.message);
@@ -84,6 +84,7 @@ const updateCommand = new Command('update')
   .argument('<id>', 'Object ID')
   .option('-d, --data <path>', 'Path to JSON data file')
   .option('-i, --inline <json>', 'Inline JSON data')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (id, options) => {
     const spinner = ora('Updating object...').start();
     
@@ -99,7 +100,7 @@ const updateCommand = new Command('update')
         process.exit(1);
       }
       
-      const client = await createClient();
+      const client = await createClient(options.profile);
       const result = await client.updateObject(id, data);
       await client.disconnect();
       
@@ -108,8 +109,8 @@ const updateCommand = new Command('update')
       if (options.parent?.opts().json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log(chalk.green('ID:'), result.id);
         console.log(chalk.green('Version:'), result.version);
+        console.log(chalk.green('Modified:'), new Date(result.modified).toLocaleString());
       }
     } catch (error: any) {
       spinner.fail(error.message);
@@ -120,33 +121,20 @@ const updateCommand = new Command('update')
 const deleteCommand = new Command('delete')
   .description('Delete an object')
   .argument('<id>', 'Object ID')
-  .option('-f, --force', 'Skip confirmation')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (id, options) => {
-    if (!options.force) {
-      const inquirer = await import('inquirer');
-      const { confirm } = await inquirer.default.prompt([
-        {
-          type: 'confirm',
-          name: 'confirm',
-          message: `Are you sure you want to delete object ${id}?`,
-          default: false
-        }
-      ]);
-      
-      if (!confirm) {
-        console.log('Deletion cancelled');
-        return;
-      }
-    }
-    
     const spinner = ora('Deleting object...').start();
     
     try {
-      const client = await createClient();
-      await client.deleteObject(id);
+      const client = await createClient(options.profile);
+      const result = await client.deleteObject(id);
       await client.disconnect();
       
       spinner.succeed('Object deleted successfully');
+      
+      if (options.parent?.opts().json) {
+        console.log(JSON.stringify(result, null, 2));
+      }
     } catch (error: any) {
       spinner.fail(error.message);
       process.exit(1);
@@ -158,14 +146,14 @@ const listCommand = new Command('list')
   .argument('<type>', 'Object type')
   .option('-f, --filter <query>', 'Filter query')
   .option('-l, --limit <number>', 'Limit results', '100')
-  .option('-o, --offset <number>', 'Offset results', '0')
+  .option('-o, --offset <number>', 'Offset for pagination', '0')
+  .option('-p, --profile <alias>', 'Use specific profile')
   .action(async (type, options) => {
     const spinner = ora('Fetching objects...').start();
     
     try {
-      const client = await createClient();
-      const result = await client.sendRequest('list' as any, {
-        type,
+      const client = await createClient(options.profile);
+      const result = await client.listObjects(type, {
         filter: options.filter,
         limit: parseInt(options.limit),
         offset: parseInt(options.offset)
@@ -177,9 +165,19 @@ const listCommand = new Command('list')
       if (options.parent?.opts().json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        result.data.forEach((obj: any) => {
-          console.log(chalk.cyan(`- ${obj.id}`));
+        result.objects.forEach((obj: any) => {
+          console.log(chalk.cyan(`\n${obj.id}`));
+          console.log('  Type:', obj.type);
+          console.log('  Version:', obj.version);
+          console.log('  Created:', new Date(obj.created).toLocaleString());
+          if (obj.summary) {
+            console.log('  Summary:', obj.summary);
+          }
         });
+        
+        if (result.hasMore) {
+          console.log(chalk.yellow(`\n${result.count} more objects available. Use --offset to paginate.`));
+        }
       }
     } catch (error: any) {
       spinner.fail(error.message);

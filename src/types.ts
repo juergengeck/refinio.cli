@@ -20,6 +20,8 @@ export enum MessageType {
   UPDATE_RESPONSE = 'crud.update.response',
   DELETE_REQUEST = 'crud.delete.request',
   DELETE_RESPONSE = 'crud.delete.response',
+  LIST_REQUEST = 'crud.list.request',
+  LIST_RESPONSE = 'crud.list.response',
   
   // Recipe Operations (data structure definitions)
   RECIPE_REGISTER = 'recipe.register',
@@ -30,7 +32,14 @@ export enum MessageType {
   // Streaming
   STREAM_SUBSCRIBE = 'stream.subscribe',
   STREAM_EVENT = 'stream.event',
-  STREAM_UNSUBSCRIBE = 'stream.unsubscribe'
+  STREAM_UNSUBSCRIBE = 'stream.unsubscribe',
+  
+  // Profile Operations (ONE objects)
+  PROFILE_CREATE = 'profile.create',
+  PROFILE_GET = 'profile.get',
+  PROFILE_UPDATE = 'profile.update',
+  PROFILE_DELETE = 'profile.delete',
+  PROFILE_LIST = 'profile.list'
 }
 
 export interface PersonKeys {

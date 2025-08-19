@@ -1,90 +1,198 @@
 # Refinio CLI
 
-Command-line client for Refinio API using Person keys for authentication.
+Command-line interface for managing ONE platform instances, profiles, and objects.
 
 ## Features
 
-- **QUICVC Client**: Uses one.core's QUIC transport with verifiable credentials
-- **Person Keys**: Authenticate with your Person's cryptographic identity
-- **CRUD Operations**: Create, read, update, delete ONE objects
-- **Recipe Execution**: Run predefined recipes with parameters
-- **Real-time Streaming**: Watch objects and subscribe to events
-- **Multiple Output Formats**: JSON and human-readable text
+- 🔐 **Multi-instance support** - Connect to multiple ONE instances
+- 👤 **Profile management** - Profiles as ONE objects for multi-context access
+- 📦 **CRUD operations** - Create, read, update, delete ONE objects
+- 📋 **Recipe management** - Register and manage data structure definitions
+- 🔄 **Real-time streaming** - Subscribe to object changes and events
+- 🚀 **Profile shortcuts** - Quick access with `refinio <profile> <command>`
+- 🔑 **Person Keys** - Authenticate with cryptographic identity
 
 ## Installation
 
 ```bash
-cd packages/refinio.cli
+npm install -g @juergengeck/refinio-cli
+```
+
+Or clone and link locally:
+```bash
+git clone https://github.com/juergengeck/refinio.cli.git
+cd refinio.cli
 npm install
 npm run build
-npm link  # Makes 'refinio' command available globally
+npm link
 ```
 
 ## Quick Start
 
-1. **Generate Person keys** (if you don't have them):
+### 1. Connect to an Instance
+
 ```bash
-refinio auth generate your-email@example.com
+# Connect with new Person keys
+refinio connect quic://instance.example.com:49498 --email alice@example.com
+
+# Or with existing keys
+refinio connect quic://instance.example.com:49498 --keys ~/my-keys.json
 ```
 
-2. **Authenticate with server**:
+### 2. Create a Profile
+
+Profiles are ONE objects stored in the instance:
+
 ```bash
-refinio auth login --keys ~/.refinio/keys.json
+refinio profile create dev --name "Development" --description "Dev environment"
 ```
 
-3. **Check authentication status**:
+### 3. Use the Profile
+
 ```bash
-refinio auth status
+# Set as default
+refinio profile use dev
+
+# Use profile shortcut
+refinio dev recipe list
+
+# Or explicit profile flag
+refinio recipe list --profile dev
 ```
 
-3. **Create an object**:
+## Core Concepts
+
+### Profiles as ONE Objects
+
+Profiles are not just local configurations - they are proper ONE objects stored in the instance with:
+- Unique alias for identification
+- Person ID association
+- Display name and description
+- Permissions and metadata
+- Settings and preferences
+
+### Hierarchical Recipe System
+
+ONE uses a self-describing recipe system where recipes themselves are ONE objects:
+- Base `Recipe` defines what a recipe is
+- Specialized recipes can define other recipes
+- Every recipe has `$type$` (name) and `$recipe$` (what defines it)
+
+## Command Reference
+
+### Instance Management
+
 ```bash
-refinio create Person --data person.json
+# Connect to instance
+refinio connect <url> [--email <email>] [--keys <path>]
+
+# List connected instances
+refinio instances
+
+# Disconnect from instance
+refinio disconnect <url>
 ```
 
-4. **Get an object**:
+### Profile Management
+
 ```bash
-refinio get abc123def456
+# Create profile (stored as ONE object)
+refinio profile create <alias> [--name <name>] [--description <text>]
+
+# List profiles in instance
+refinio profile list [--my]
+
+# Show profile details
+refinio profile show [alias]
+
+# Update profile
+refinio profile update <alias> [--name <name>] [--tags <tags>]
+
+# Delete profile
+refinio profile delete <alias>
+
+# Set default profile
+refinio profile use <alias>
 ```
 
-5. **Execute a recipe**:
+### Object Operations
+
 ```bash
-refinio recipe execute CreateProfile --params profile.json
+# Create object
+refinio create <type> --data <file.json>
+refinio create <type> --inline '{"field": "value"}'
+
+# Get object
+refinio get <id> [--version <version>]
+
+# Update object
+refinio update <id> --data <file.json>
+
+# Delete object
+refinio delete <id>
+
+# List objects
+refinio list <type> [--filter <query>] [--limit <n>]
 ```
 
-## Commands
+### Recipe Management (Data Structures)
 
-### Authentication
 ```bash
-refinio auth generate <email>  # Generate new Person keys
-refinio auth login             # Authenticate with server
-refinio auth logout            # Remove stored keys
-refinio auth status            # Check authentication status
-```
+# Register recipe (defines data structure)
+refinio recipe register --file <recipe.json>
+refinio recipe register --inline '{"$type$": "MyType", ...}'
 
-### CRUD Operations
-```bash
-refinio create <type>    # Create new object
-refinio get <id>         # Get object by ID
-refinio update <id>      # Update existing object
-refinio delete <id>      # Delete object
-refinio list <type>      # List objects of type
-```
+# List recipes
+refinio recipe list [--type <recipeType>]
 
-### Recipes
-```bash
-refinio recipe execute <name>  # Execute recipe
-refinio recipe list            # List available recipes
-refinio recipe schema <name>   # Get recipe schema
+# Get recipe definition
+refinio recipe get <name>
 ```
 
 ### Streaming
+
 ```bash
-refinio stream events     # Stream all events
-refinio watch <id>        # Watch specific object
+# Stream events
+refinio stream events [--type <event-type>]
+
+# Watch object changes
+refinio watch <id>
+```
+
+### Profile Shortcuts
+
+Use profile aliases as shortcuts:
+
+```bash
+# Instead of: refinio recipe list --profile fritz
+refinio fritz recipe list
+
+# Works with any command
+refinio fritz create Person --data person.json
+refinio fritz get abc123
 ```
 
 ## Configuration
+
+### Local Storage
+
+The CLI stores minimal local data at `~/.refinio/`:
+- `connections.json` - Instance connections and Person keys only
+- Profile data is stored as ONE objects in the instance
+
+### Person Keys Format
+
+```json
+{
+  "personId": "sha256-hash",
+  "publicKey": "hex-encoded",
+  "privateKey": "hex-encoded",
+  "signPublicKey": "hex-encoded",
+  "signPrivateKey": "hex-encoded"
+}
+```
+
+### Config File
 
 Create `~/.refinio/cli.config.json`:
 ```json
@@ -94,9 +202,6 @@ Create `~/.refinio/cli.config.json`:
     "timeout": 30000,
     "retries": 3
   },
-  "keys": {
-    "path": "~/.refinio/keys.json"
-  },
   "output": {
     "format": "text",
     "color": true
@@ -104,48 +209,82 @@ Create `~/.refinio/cli.config.json`:
 }
 ```
 
+## Examples
+
+### Multi-Instance Workflow
+
+```bash
+# Connect to development instance
+refinio connect quic://dev.example.com:49498 --email dev@example.com
+refinio profile create dev --name "Development"
+
+# Connect to production instance
+refinio connect quic://prod.example.com:49498 --email prod@example.com
+refinio profile create prod --name "Production"
+
+# Use different profiles
+refinio dev list Person
+refinio prod list Person
+```
+
+### Recipe Registration
+
+```bash
+# Create a recipe definition
+cat > message-recipe.json << EOF
+{
+  "$type$": "CustomMessage",
+  "$recipe$": "Recipe",
+  "description": "Custom message type",
+  "properties": {
+    "content": { "type": "string", "required": true },
+    "priority": { "type": "enum", "values": ["low", "medium", "high"] }
+  }
+}
+EOF
+
+# Register it (admin only)
+refinio recipe register --file message-recipe.json --profile admin
+```
+
+### Working with Objects
+
+```bash
+# Create a Person object
+echo '{"name": "Alice", "email": "alice@example.com"}' > person.json
+refinio create Person --data person.json
+
+# Get the created object
+refinio get <returned-id>
+
+# Update it
+echo '{"name": "Alice Smith", "email": "alice@example.com"}' > updated.json
+refinio update <id> --data updated.json
+
+# List all Person objects
+refinio list Person
+```
+
 ## Global Options
 
 - `-v, --verbose`: Enable verbose output
 - `-j, --json`: Output in JSON format
+- `-p, --profile <alias>`: Use specific profile
 - `-c, --config <path>`: Path to config file
-
-## Examples
-
-### Create a Person object
-```bash
-echo '{"name": "Alice", "email": "alice@example.com"}' > person.json
-refinio create Person --data person.json
-```
-
-### Execute a recipe with parameters
-```bash
-cat > params.json <<EOF
-{
-  "personId": "abc123",
-  "displayName": "Alice Smith"
-}
-EOF
-refinio recipe execute CreateProfile --params params.json
-```
-
-### Watch for changes
-```bash
-refinio watch abc123def456
-```
-
-### Stream all events in JSON format
-```bash
-refinio stream events --json
-```
 
 ## Environment Variables
 
-- `REFINIO_SERVER_URL`: API server URL
+- `REFINIO_DEBUG`: Enable debug logging
 - `REFINIO_TIMEOUT`: Request timeout in milliseconds
-- `REFINIO_KEYS_PATH`: Path to Person keys file
-- `REFINIO_PERSON_ID`: Your Person ID (optional)
-- `REFINIO_OUTPUT_FORMAT`: Output format (json|text)
+- `REFINIO_OUTPUT_FORMAT`: Default output format (json|text)
+
+## Security
+
+- Person keys are stored locally with encryption support
+- Profiles are ONE objects with proper access control
+- All communication uses QUIC with built-in encryption
+- Instance owner has admin privileges
+- No server-issued credentials - users control their keys
 
 ## Development
 
@@ -158,4 +297,15 @@ npm test
 
 # Build for production
 npm run build
+
+# Link for local testing
+npm link
 ```
+
+## License
+
+MIT
+
+## Contributing
+
+Issues and pull requests welcome at [github.com/juergengeck/refinio.cli](https://github.com/juergengeck/refinio.cli)
