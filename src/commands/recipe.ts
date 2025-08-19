@@ -17,38 +17,39 @@ async function createClient(): Promise<QuicClient> {
 }
 
 export const recipeCommand = new Command('recipe')
-  .description('Recipe operations');
+  .description('Recipe operations (data structure definitions)');
 
 recipeCommand
-  .command('execute')
-  .description('Execute a recipe')
-  .argument('<name>', 'Recipe name')
-  .option('-p, --params <path>', 'Path to parameters JSON file')
-  .option('-i, --inline <json>', 'Inline JSON parameters')
-  .action(async (name, options) => {
-    const spinner = ora('Executing recipe...').start();
+  .command('register')
+  .description('Register a new recipe (data structure definition)')
+  .option('-f, --file <path>', 'Path to recipe JSON file')
+  .option('-i, --inline <json>', 'Inline JSON recipe definition')
+  .action(async (options) => {
+    const spinner = ora('Registering recipe...').start();
     
     try {
-      let params = {};
+      let recipe;
       
-      if (options.params) {
-        const content = await fs.readFile(options.params, 'utf-8');
-        params = JSON.parse(content);
+      if (options.file) {
+        const content = await fs.readFile(options.file, 'utf-8');
+        recipe = JSON.parse(content);
       } else if (options.inline) {
-        params = JSON.parse(options.inline);
+        recipe = JSON.parse(options.inline);
+      } else {
+        spinner.fail('No recipe definition provided');
+        process.exit(1);
       }
       
       const client = await createClient();
-      const result = await client.executeRecipe(name, params);
+      const result = await client.registerRecipe(recipe);
       await client.disconnect();
       
-      spinner.succeed('Recipe executed successfully');
+      spinner.succeed('Recipe registered successfully');
       
       if (options.parent?.parent?.opts().json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log(chalk.green('Result:'));
-        console.log(result.result);
+        console.log(chalk.green('Recipe registered:'), recipe.name);
       }
     } catch (error: any) {
       spinner.fail(error.message);
@@ -58,16 +59,14 @@ recipeCommand
 
 recipeCommand
   .command('list')
-  .description('List available recipes')
+  .description('List registered recipes (data structures)')
   .option('-c, --category <category>', 'Filter by category')
   .action(async (options) => {
     const spinner = ora('Fetching recipes...').start();
     
     try {
       const client = await createClient();
-      const result = await client.sendRequest('recipe.list' as any, {
-        category: options.category
-      });
+      const result = await client.listRecipes(options.category);
       await client.disconnect();
       
       spinner.succeed(`Found ${result.count} recipes`);
@@ -87,7 +86,10 @@ recipeCommand
         categories.forEach((recipes, category) => {
           console.log(chalk.cyan(`\n${category}:`));
           recipes.forEach(recipe => {
-            console.log(`  ${chalk.green(recipe.name)} - ${recipe.description}`);
+            console.log(`  ${chalk.green(recipe.name)} (${recipe.type}) - ${recipe.description}`);
+            if (recipe.properties) {
+              console.log(`    Properties: ${Object.keys(recipe.properties).join(', ')}`);
+            }
           });
         });
       }
@@ -98,42 +100,37 @@ recipeCommand
   });
 
 recipeCommand
-  .command('schema')
-  .description('Get recipe schema')
+  .command('get')
+  .description('Get recipe definition (data structure)')
   .argument('<name>', 'Recipe name')
   .action(async (name, options) => {
-    const spinner = ora('Fetching schema...').start();
+    const spinner = ora('Fetching recipe...').start();
     
     try {
       const client = await createClient();
-      const result = await client.sendRequest('recipe.schema' as any, {
-        name
-      });
+      const result = await client.getRecipe(name);
       await client.disconnect();
       
-      spinner.succeed('Schema fetched successfully');
+      spinner.succeed('Recipe fetched successfully');
       
       if (options.parent?.parent?.opts().json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log(chalk.cyan('Recipe:'), result.name);
-        console.log(chalk.cyan('Description:'), result.description);
-        console.log(chalk.cyan('Category:'), result.category);
+        const recipe = result.recipe;
+        console.log(chalk.cyan('Recipe:'), recipe.name);
+        console.log(chalk.cyan('Type:'), recipe.type);
+        console.log(chalk.cyan('Description:'), recipe.description);
+        console.log(chalk.cyan('Category:'), recipe.category);
         
-        console.log(chalk.cyan('\nParameters:'));
-        Object.entries(result.parameters).forEach(([name, param]: [string, any]) => {
-          const required = param.required ? chalk.red('*') : '';
-          console.log(`  ${name}${required}: ${param.type} - ${param.description || ''}`);
-        });
-        
-        if (result.returns) {
-          console.log(chalk.cyan('\nReturns:'), result.returns.type);
-        }
-        
-        if (result.examples && result.examples.length > 0) {
-          console.log(chalk.cyan('\nExamples:'));
-          result.examples.forEach((example: any) => {
-            console.log(`  ${JSON.stringify(example)}`);
+        if (recipe.properties) {
+          console.log(chalk.cyan('\nProperties (Data Structure):'));
+          Object.entries(recipe.properties).forEach(([name, prop]: [string, any]) => {
+            const required = prop.required ? chalk.red('*') : '';
+            let propDesc = `  ${name}${required}: ${prop.type}`;
+            if (prop.format) propDesc += ` (${prop.format})`;
+            if (prop.refType) propDesc += ` -> ${prop.refType}`;
+            if (prop.maxLength) propDesc += ` (max: ${prop.maxLength})`;
+            console.log(propDesc);
           });
         }
       }

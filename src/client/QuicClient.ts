@@ -185,10 +185,21 @@ export class QuicClient extends EventEmitter {
     });
   }
 
-  async executeRecipe(name: string, params: any): Promise<any> {
-    return this.sendRequest(MessageType.RECIPE_EXECUTE, {
-      name,
-      params
+  async registerRecipe(recipe: any): Promise<any> {
+    return this.sendRequest(MessageType.RECIPE_REGISTER, {
+      recipe
+    });
+  }
+
+  async getRecipe(name: string): Promise<any> {
+    return this.sendRequest(MessageType.RECIPE_GET, {
+      name
+    });
+  }
+
+  async listRecipes(category?: string): Promise<any> {
+    return this.sendRequest(MessageType.RECIPE_LIST, {
+      category
     });
   }
 
