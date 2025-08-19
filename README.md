@@ -62,14 +62,16 @@ refinio recipe list --profile dev
 
 ## Core Concepts
 
-### Profiles as ONE Objects
+### Profiles as Official ONE Objects
 
-Profiles are not just local configurations - they are proper ONE objects stored in the instance with:
-- Unique alias for identification
-- Person ID association
-- Display name and description
-- Permissions and metadata
-- Settings and preferences
+Profiles use the official one.models Profile recipe stored in the instance:
+- `nickname` - User-friendly name for CLI shortcuts (e.g., "fritz", "dev")  
+- `profileId` - Unique profile identifier
+- `personId` - Reference to associated Person
+- `owner` - Reference to Profile owner Person
+- `communicationEndpoint` - Array of communication endpoints
+- `personDescription` - Array of person description objects
+- Full semantic structure with proper ONE object relationships
 
 ### Hierarchical Recipe System
 
@@ -96,23 +98,23 @@ refinio disconnect <url>
 ### Profile Management
 
 ```bash
-# Create profile (stored as ONE object)
-refinio profile create <alias> [--name <name>] [--description <text>]
+# Create Profile (official ONE object)
+refinio profile create <nickname> [--name <display-name>]
 
-# List profiles in instance
+# List Profiles in instance
 refinio profile list [--my]
 
-# Show profile details
-refinio profile show [alias]
+# Show Profile details (official one.models structure)
+refinio profile show [nickname]
 
-# Update profile
-refinio profile update <alias> [--name <name>] [--tags <tags>]
+# Update Profile nickname
+refinio profile update <nickname> [--name <new-nickname>]
 
-# Delete profile
-refinio profile delete <alias>
+# Delete Profile
+refinio profile delete <nickname>
 
-# Set default profile
-refinio profile use <alias>
+# Set default profile locally
+refinio profile use <nickname>
 ```
 
 ### Object Operations
@@ -177,8 +179,9 @@ refinio fritz get abc123
 ### Local Storage
 
 The CLI stores minimal local data at `~/.refinio/`:
-- `connections.json` - Instance connections and Person keys only
-- Profile data is stored as ONE objects in the instance
+- `connections.json` - Instance connections and Person keys only  
+- Profile data is stored as official one.models Profile objects in the instance
+- No local profile storage - profiles are proper ONE objects
 
 ### Person Keys Format
 
@@ -216,13 +219,13 @@ Create `~/.refinio/cli.config.json`:
 ```bash
 # Connect to development instance
 refinio connect quic://dev.example.com:49498 --email dev@example.com
-refinio profile create dev --name "Development"
+refinio profile create dev --name "Development Environment"
 
-# Connect to production instance
+# Connect to production instance  
 refinio connect quic://prod.example.com:49498 --email prod@example.com
-refinio profile create prod --name "Production"
+refinio profile create prod --name "Production Environment"
 
-# Use different profiles
+# Use nickname shortcuts with different instances
 refinio dev list Person
 refinio prod list Person
 ```

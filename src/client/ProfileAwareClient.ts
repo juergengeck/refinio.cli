@@ -44,12 +44,12 @@ export class ProfileAwareClient extends QuicClient {
     const targetAlias = profileAlias || instance.defaultProfileAlias;
     if (targetAlias) {
       try {
-        const result = await this.getProfile({ alias: targetAlias });
+        const result = await this.getProfile({ nickname: targetAlias });
         if (result.profile) {
           this.profile = result.profile;
           
-          // Touch the profile to update last used
-          await this.touchProfile(result.profile.id);
+          // For metadata tracking, we would use journal types here
+          // For now, profiles are fetched fresh each time
         }
       } catch (error) {
         console.warn(`Profile '${targetAlias}' not found, continuing without profile`);
@@ -64,17 +64,6 @@ export class ProfileAwareClient extends QuicClient {
     return this.profile;
   }
   
-  /**
-   * Touch profile to update last used timestamp
-   */
-  private async touchProfile(profileId: string): Promise<void> {
-    try {
-      // This is a best-effort operation, ignore errors
-      await this.sendRequest('profile.touch', { profileId });
-    } catch (error) {
-      // Ignore
-    }
-  }
 }
 
 /**

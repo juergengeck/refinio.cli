@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
+import crypto from 'crypto';
 import { LocalCredentials } from '../credentials/LocalCredentials';
 import { createProfileClient } from '../client/ProfileAwareClient';
 
@@ -33,13 +34,14 @@ profileCommand
       // Connect to instance
       const client = await createProfileClient(instance.instanceUrl);
       
-      // Create the Profile object in the instance
+      // Create the Profile object in the instance using official one.models Profile structure
       const result = await client.createProfile({
-        alias,
-        displayName: options.name || alias,
-        description: options.description,
-        personId: instance.personKeys.personId,
-        instanceUrl: instance.instanceUrl
+        nickname: alias,  // Using nickname field from official Profile
+        personId: instance.personKeys.personId as any,
+        owner: instance.personKeys.personId as any,  // For now, person is also the owner
+        profileId: crypto.randomBytes(16).toString('hex'),
+        communicationEndpoint: [],
+        personDescription: []
       });
       
       await client.disconnect();
@@ -103,22 +105,22 @@ profileCommand
       console.log(chalk.cyan(`Profiles in ${instance.instanceUrl}:\n`));
       
       result.profiles.forEach((profile: any) => {
-        const isDefault = profile.alias === instance.defaultProfileAlias;
+        const isDefault = profile.nickname === instance.defaultProfileAlias;
         const defaultMark = isDefault ? chalk.green(' (default)') : '';
         const isMine = profile.personId === instance.personKeys.personId;
         const ownerMark = isMine ? chalk.blue(' [yours]') : '';
         
-        console.log(`  ${chalk.bold(profile.alias)}${defaultMark}${ownerMark}`);
-        console.log(`    ${chalk.gray(profile.displayName)}`);
+        console.log(`  ${chalk.bold(profile.nickname || profile.profileId)}${defaultMark}${ownerMark}`);
         
-        if (profile.description) {
-          console.log(`    ${chalk.gray(profile.description)}`);
+        if (profile.personDescription?.length > 0) {
+          console.log(`    ${chalk.gray('Person descriptions: ' + profile.personDescription.length)}`);
         }
         
-        if (profile.lastUsed) {
-          console.log(`    ${chalk.gray(`Last used: ${new Date(profile.lastUsed).toLocaleString()}`)}`);
+        if (profile.communicationEndpoint?.length > 0) {
+          console.log(`    ${chalk.gray('Communication endpoints: ' + profile.communicationEndpoint.length)}`);
         }
         
+        console.log(`    ${chalk.gray('Profile ID: ' + profile.profileId)}`);
         console.log();
       });
     } catch (error: any) {
@@ -146,7 +148,7 @@ profileCommand
       
       // Verify profile exists
       const client = await createProfileClient(instance.instanceUrl);
-      const result = await client.getProfile({ alias });
+      const result = await client.getProfile({ nickname: alias });
       
       if (!result.profile) {
         spinner.fail(`Profile '${alias}' not found`);
@@ -193,7 +195,7 @@ profileCommand
       const spinner = ora('Fetching profile...').start();
       
       const client = await createProfileClient(instance.instanceUrl);
-      const result = await client.getProfile({ alias: targetAlias });
+      const result = await client.getProfile({ nickname: targetAlias });
       await client.disconnect();
       
       spinner.stop();
@@ -206,41 +208,21 @@ profileCommand
       const profile = result.profile;
       
       console.log(chalk.cyan('Profile Details:\n'));
-      console.log(`  ${chalk.bold('Alias:')} ${profile.alias}`);
-      console.log(`  ${chalk.bold('Display Name:')} ${profile.displayName}`);
-      console.log(`  ${chalk.bold('Profile ID:')} ${profile.id}`);
+      console.log(`  ${chalk.bold('Nickname:')} ${profile.nickname || 'No nickname'}`);
+      console.log(`  ${chalk.bold('Profile ID:')} ${profile.profileId}`);
       console.log(`  ${chalk.bold('Person ID:')} ${profile.personId}`);
-      console.log(`  ${chalk.bold('Instance URL:')} ${profile.instanceUrl}`);
+      console.log(`  ${chalk.bold('Owner:')} ${profile.owner}`);
       
-      if (profile.instanceId) {
-        console.log(`  ${chalk.bold('Instance ID:')} ${profile.instanceId}`);
+      if (profile.communicationEndpoint && profile.communicationEndpoint.length > 0) {
+        console.log(`  ${chalk.bold('Communication Endpoints:')} ${profile.communicationEndpoint.length} endpoint(s)`);
       }
       
-      if (profile.description) {
-        console.log(`  ${chalk.bold('Description:')} ${profile.description}`);
+      if (profile.personDescription && profile.personDescription.length > 0) {
+        console.log(`  ${chalk.bold('Person Descriptions:')} ${profile.personDescription.length} description(s)`);
       }
       
-      if (profile.permissions && profile.permissions.length > 0) {
-        console.log(`  ${chalk.bold('Permissions:')} ${profile.permissions.join(', ')}`);
-      }
-      
-      if (profile.metadata) {
-        if (profile.metadata.createdAt) {
-          console.log(`  ${chalk.bold('Created:')} ${new Date(profile.metadata.createdAt).toLocaleString()}`);
-        }
-        if (profile.metadata.lastUsed) {
-          console.log(`  ${chalk.bold('Last Used:')} ${new Date(profile.metadata.lastUsed).toLocaleString()}`);
-        }
-        if (profile.metadata.tags && profile.metadata.tags.length > 0) {
-          console.log(`  ${chalk.bold('Tags:')} ${profile.metadata.tags.join(', ')}`);
-        }
-      }
-      
-      if (profile.settings && Object.keys(profile.settings).length > 0) {
-        console.log(`  ${chalk.bold('Settings:')}`);
-        Object.entries(profile.settings).forEach(([key, value]) => {
-          console.log(`    ${key}: ${value}`);
-        });
+      if (profile.$versionHash$) {
+        console.log(`  ${chalk.bold('Version Hash:')} ${profile.$versionHash$}`);
       }
     } catch (error: any) {
       console.error(chalk.red('Error:'), error.message);
@@ -271,24 +253,18 @@ profileCommand
       const client = await createProfileClient(instance.instanceUrl);
       
       // Get the profile first
-      const getResult = await client.getProfile({ alias });
+      const getResult = await client.getProfile({ nickname: alias });
       if (!getResult.profile) {
         spinner.fail(`Profile '${alias}' not found`);
         process.exit(1);
       }
       
       const updates: any = {};
-      if (options.name) updates.displayName = options.name;
-      if (options.description) updates.description = options.description;
-      if (options.tags) {
-        updates.metadata = {
-          ...getResult.profile.metadata,
-          tags: options.tags.split(',').map((t: string) => t.trim())
-        };
-      }
+      if (options.name) updates.nickname = options.name;  // Update nickname
+      // Note: For description and other metadata, we'd need PersonDescription objects
       
       const result = await client.updateProfile({
-        profileId: getResult.profile.id,
+        profileId: getResult.profile.profileId,
         updates
       });
       
@@ -333,13 +309,13 @@ profileCommand
       const client = await createProfileClient(instance.instanceUrl);
       
       // Get the profile first
-      const getResult = await client.getProfile({ alias });
+      const getResult = await client.getProfile({ nickname: alias });
       if (!getResult.profile) {
         spinner.fail(`Profile '${alias}' not found`);
         process.exit(1);
       }
       
-      await client.deleteProfile(getResult.profile.id);
+      await client.deleteProfile(getResult.profile.profileId);
       await client.disconnect();
       
       // Clear local default if it was this profile

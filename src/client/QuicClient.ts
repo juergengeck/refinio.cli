@@ -224,7 +224,7 @@ export class QuicClient extends EventEmitter {
     return this.sendRequest(MessageType.PROFILE_CREATE, profile);
   }
 
-  async getProfile(query: { profileId?: string; alias?: string }): Promise<any> {
+  async getProfile(query: { profileId?: string; nickname?: string }): Promise<any> {
     return this.sendRequest(MessageType.PROFILE_GET, query);
   }
 
