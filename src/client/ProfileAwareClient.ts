@@ -64,6 +64,21 @@ export class ProfileAwareClient extends QuicClient {
     return this.profile;
   }
   
+  /**
+   * Send a generic request to the server
+   */
+  async request(type: string, payload?: any): Promise<any> {
+    // Convert type to MessageType enum if it exists
+    let messageType: any = type;
+    
+    // Handle special cases
+    if (type === 'filer') {
+      messageType = 'filer';
+    }
+    
+    return this.sendRequest(messageType, payload);
+  }
+  
 }
 
 /**

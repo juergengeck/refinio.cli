@@ -15,6 +15,10 @@ import { testQuicvcCommand } from './commands/test-quicvc';
 import { inviteCommand } from './commands/invite';
 import { connectLocalCommand } from './commands/connect-local';
 import { connectVcCommand } from './commands/connect-vc';
+import { syncCommand } from './commands/sync';
+import { debugCommand } from './commands/debug';
+import { filerCommand } from './commands/filer';
+import { startCommand, stopCommand, listCommand } from './commands/start';
 
 const program = new Command();
 
@@ -57,6 +61,20 @@ program.addCommand(connectLocalCommand);
 // Add connect-vc command
 program.addCommand(connectVcCommand);
 
+// Add sync command
+program.addCommand(syncCommand);
+
+// Add debug command
+program.addCommand(debugCommand);
+
+// Add filer command
+program.addCommand(filerCommand);
+
+// Add instance management commands
+program.addCommand(startCommand);
+program.addCommand(stopCommand);
+program.addCommand(listCommand);
+
 // Global options
 program
   .option('-v, --verbose', 'Enable verbose output')
@@ -72,7 +90,7 @@ async function checkProfileShortcut(argv: string[]): Promise<string[]> {
   const potentialProfile = argv[2];
   
   // Skip if it starts with - (it's a flag) or is a known command
-  const knownCommands = ['connect', 'disconnect', 'instances', 'profile', 'auth', 'create', 'get', 'update', 'delete', 'list', 'recipe', 'stream', 'test-quicvc', 'invite', 'connect-local', 'connect-vc'];
+  const knownCommands = ['connect', 'disconnect', 'instances', 'profile', 'auth', 'create', 'get', 'update', 'delete', 'list', 'recipe', 'stream', 'test-quicvc', 'invite', 'connect-local', 'connect-vc', 'sync', 'debug', 'filer', 'start', 'stop'];
   if (potentialProfile.startsWith('-') || knownCommands.includes(potentialProfile)) {
     return argv;
   }

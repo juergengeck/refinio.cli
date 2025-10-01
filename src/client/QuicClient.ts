@@ -12,14 +12,14 @@ export interface QuicClientOptions {
 }
 
 export class QuicClient extends EventEmitter {
-  private options: QuicClientOptions;
+  protected options: QuicClientOptions;
   private quicTransport: any;
   private connection: any;
   private pendingRequests: Map<string, any> = new Map();
   private session: any = null;
   private personKeys: PersonKeys | null = null;
-  private serverAddress: string;
-  private serverPort: number;
+  protected serverAddress: string;
+  protected serverPort: number;
 
   constructor(options: QuicClientOptions) {
     super();
