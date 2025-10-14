@@ -26,7 +26,7 @@ debugCommand
       const nodeVersion = process.version;
       checks.push({
         name: 'Node.js',
-        status: nodeVersion.match(/^v(\d+)/)?.[1] >= '18',
+        status: parseInt(nodeVersion.match(/^v(\d+)/)?.[1] || '0') >= 18,
         info: nodeVersion
       });
       

@@ -7,7 +7,7 @@
 
 import * as dgram from 'dgram';
 import { EventEmitter } from 'events';
-import { VCAuthenticationManager, InvitationData, VCExchangeMessage } from '../vc/VCAuthenticationManager';
+import { VCAuthenticationManager, InvitationData, VCExchangeMessage } from '../vc/VCAuthenticationManager.js';
 
 // Service types for ONE platform compatibility
 enum NetworkServiceType {

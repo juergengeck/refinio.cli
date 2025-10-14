@@ -3,8 +3,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import crypto from 'crypto';
-import { LocalCredentials } from '../credentials/LocalCredentials';
-import { createProfileClient } from '../client/ProfileAwareClient';
+import { LocalCredentials } from '../credentials/LocalCredentials.js';
+import { createProfileClient } from '../client/ProfileAwareClient.js';
 
 const localCreds = new LocalCredentials();
 
@@ -148,7 +148,7 @@ profileCommand
       
       // Verify profile exists
       const client = await createProfileClient(instance.instanceUrl);
-      const result = await client.getProfile({ nickname: alias });
+      const result = await client.getProfile();
       
       if (!result.profile) {
         spinner.fail(`Profile '${alias}' not found`);
@@ -195,7 +195,7 @@ profileCommand
       const spinner = ora('Fetching profile...').start();
       
       const client = await createProfileClient(instance.instanceUrl);
-      const result = await client.getProfile({ nickname: targetAlias });
+      const result = await client.getProfile();
       await client.disconnect();
       
       spinner.stop();
@@ -253,7 +253,7 @@ profileCommand
       const client = await createProfileClient(instance.instanceUrl);
       
       // Get the profile first
-      const getResult = await client.getProfile({ nickname: alias });
+      const getResult = await client.getProfile();
       if (!getResult.profile) {
         spinner.fail(`Profile '${alias}' not found`);
         process.exit(1);
@@ -309,7 +309,7 @@ profileCommand
       const client = await createProfileClient(instance.instanceUrl);
       
       // Get the profile first
-      const getResult = await client.getProfile({ nickname: alias });
+      const getResult = await client.getProfile();
       if (!getResult.profile) {
         spinner.fail(`Profile '${alias}' not found`);
         process.exit(1);

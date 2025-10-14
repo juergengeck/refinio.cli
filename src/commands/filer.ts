@@ -2,16 +2,99 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
-import { createProfileClient } from '../client/ProfileAwareClient';
+import { createProfileClient } from '../client/ProfileAwareClient.js';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Main filer command
 export const filerCommand = new Command('filer')
   .description('Manage one.filer filesystem')
   .alias('fs');
+
+// API start command
+filerCommand
+  .command('api')
+  .description('Start refinio.api server for ONE instance management')
+  .requiredOption('-s, --secret <string>', 'Secret for the instance')
+  .requiredOption('-d, --directory <string>', 'Data directory path')
+  .option('--port <number>', 'API server port', '49498')
+  .option('--comm-server-url <url>', 'Communication server URL')
+  .option('--background', 'Run in background')
+  .action(async (options) => {
+    const spinner = ora('Starting refinio.api server...').start();
+
+    try {
+      const apiPath = path.join(__dirname, '../../../refinio.api');
+
+      // Set up environment
+      const env: Record<string, string> = {
+        ...process.env as Record<string, string>,
+        REFINIO_INSTANCE_SECRET: options.secret,
+        REFINIO_INSTANCE_DIRECTORY: options.directory,
+        REFINIO_API_PORT: options.port.toString()
+      };
+
+      if (options.commServerUrl) {
+        env.REFINIO_COMM_SERVER_URL = options.commServerUrl;
+      }
+
+      console.log(chalk.gray(`API Path: ${apiPath}`));
+      console.log(chalk.gray(`Directory: ${options.directory}`));
+      console.log(chalk.gray(`Port: ${options.port}`));
+      if (options.commServerUrl) {
+        console.log(chalk.gray(`Comm Server: ${options.commServerUrl}`));
+      }
+
+      const child = spawn('node', ['dist/index.js'], {
+        cwd: apiPath,
+        env,
+        stdio: options.background ? 'pipe' : 'inherit',
+        detached: options.background
+      });
+
+      if (options.background) {
+        child.unref();
+        spinner.succeed(`refinio.api started in background (PID: ${child.pid})`);
+
+        console.log(chalk.green('\n✓ API Server Details:'));
+        console.log(chalk.gray(`  PID: ${child.pid}`));
+        console.log(chalk.gray(`  Port: ${options.port}`));
+        console.log(chalk.gray(`  Directory: ${options.directory}`));
+
+        console.log(chalk.yellow(`\nTo stop: kill ${child.pid}`));
+      } else {
+        spinner.succeed('refinio.api started in foreground');
+
+        child.on('exit', (code) => {
+          if (code === 0) {
+            console.log(chalk.green('API server stopped gracefully'));
+          } else {
+            console.log(chalk.red(`API server exited with code ${code}`));
+          }
+        });
+
+        // Handle graceful shutdown
+        process.on('SIGINT', () => {
+          console.log(chalk.yellow('\nShutting down API server...'));
+          child.kill('SIGTERM');
+        });
+
+        process.on('SIGTERM', () => {
+          console.log(chalk.yellow('\nShutting down API server...'));
+          child.kill('SIGTERM');
+        });
+      }
+    } catch (error: any) {
+      spinner.fail(`Failed to start refinio.api: ${error.message}`);
+      process.exit(1);
+    }
+  });
 
 // Mount command
 filerCommand
@@ -376,28 +459,22 @@ function createDefaultProfile(): void {
 // Start filer service using profiles
 filerCommand
   .command('start')
-  .description('Start the filer service using a profile')
+  .description('Start the filer service using a profile (creates default profile if it doesn\'t exist)')
   .option('-p, --profile <name>', 'Profile name to use', DEFAULT_PROFILE)
-  .option('--create-default', 'Create default profile if it does not exist')
   .option('--background', 'Run in background')
+  .option('--comm-server-url <url>', 'Communication server URL (overrides profile setting)')
   .action(async (options) => {
     const spinner = ora('Starting filer service...').start();
     
     try {
-      // Create default profile if requested and it doesn't exist
-      if (options.createDefault && !loadProfile(DEFAULT_PROFILE)) {
-        createDefaultProfile();
-        spinner.text = 'Starting filer service with new default profile...';
-      }
-
-      // Load profile
-      const profile = loadProfile(options.profile);
+      // Load profile, create default if it doesn't exist
+      let profile = loadProfile(options.profile);
       if (!profile) {
         if (options.profile === DEFAULT_PROFILE) {
-          spinner.info(`Default profile not found. Creating it...`);
+          spinner.info(`Default profile not found. Creating it automatically...`);
           createDefaultProfile();
-          const newProfile = loadProfile(DEFAULT_PROFILE);
-          if (!newProfile) {
+          profile = loadProfile(DEFAULT_PROFILE);
+          if (!profile) {
             throw new Error('Failed to create default profile');
           }
           spinner.start('Starting filer service with new default profile...');
@@ -409,7 +486,8 @@ filerCommand
             .filter((f: string) => f.endsWith('.json'))
             .map((f: string) => f.replace('.json', ''));
           if (profiles.length === 0) {
-            console.log(chalk.gray('  No profiles found. Use --create-default to create one.'));
+            console.log(chalk.gray('  No profiles found. Try using the default profile:'));
+            console.log(chalk.gray('    refinio filer start'));
           } else {
             profiles.forEach((p: string) => console.log(chalk.gray(`  - ${p}`)));
           }
@@ -423,59 +501,93 @@ filerCommand
       
       // Determine platform
       const platform = process.platform === 'win32' ? 'windows' : 'linux';
-      
+
       // Set up data directory
       if (!fs.existsSync(profileToUse.directory)) {
         fs.mkdirSync(profileToUse.directory, { recursive: true });
       }
+
+      // Determine what to launch based on platform
+      let command: string;
+      let args: string[];
+
+      if (platform === 'windows') {
+        // On Windows, launch the Electron app directly via npx.cmd
+        const electronAppPath = path.join(__dirname, '../../../electron-app');
+        command = 'npx.cmd';
+        args = ['electron', '.'];
+      } else {
+        // On Linux, use the lib/index.js (one.leute.replicant)
+        command = 'node';
+        args = [
+          path.join(__dirname, '../../../lib/index.js'),
+          'start',
+          '-s', profileToUse.secret,
+          '-d', profileToUse.directory
+        ];
+      }
       
-      // Build arguments for the main application  
-      const args = [
-        path.join(__dirname, '../../../lib/index.js'), // Path to main one.filer entry point
-        'start',
-        '-s', profileToUse.secret,
-        '-d', profileToUse.directory
-      ];
-      
-      if (profileToUse.filer !== false) {
-        args.push('--filer', 'true');
-        
-        if (profileToUse.mountPoint) {
-          if (platform === 'windows') {
-            args.push('--filer-projfs-root', profileToUse.mountPoint);
-          } else {
+      // Build arguments (Linux-specific)
+      if (platform === 'linux') {
+        if (profileToUse.filer !== false) {
+          args.push('--filer', 'true');
+
+          if (profileToUse.mountPoint) {
             args.push('--filer-mount-point', profileToUse.mountPoint);
           }
         }
-      }
-      
-      if (profileToUse.commServerUrl) {
-        args.push('--commServerUrl', profileToUse.commServerUrl);
-      }
-      
-      if (profileToUse.pairingUrl) {
-        args.push('--pairing-url', profileToUse.pairingUrl);
-      }
-      
-      if (profileToUse.iomMode) {
-        args.push('--pairing-iom-mode', profileToUse.iomMode);
-      }
-      
-      if (profileToUse.logCalls) {
-        args.push('--filer-log-calls', 'true');
+
+        // Command line --comm-server-url overrides profile setting
+        const finalCommServerUrl = options.commServerUrl || profileToUse.commServerUrl;
+        if (finalCommServerUrl) {
+          args.push('--commServerUrl', finalCommServerUrl);
+        }
+
+        if (profileToUse.pairingUrl) {
+          args.push('--pairing-url', profileToUse.pairingUrl);
+        }
+
+        if (profileToUse.iomMode) {
+          args.push('--pairing-iom-mode', profileToUse.iomMode);
+        }
+
+        if (profileToUse.logCalls) {
+          args.push('--filer-log-calls', 'true');
+        }
       }
 
       spinner.text = 'Launching filer process...';
-      
-      console.log(chalk.gray(`Command: node ${args.join(' ')}`));
+
+      // Command line --comm-server-url overrides profile setting
+      const finalCommServerUrl = options.commServerUrl || profileToUse.commServerUrl;
+
+      console.log(chalk.gray(`Command: ${command} ${args.join(' ')}`));
       console.log(chalk.gray(`Data directory: ${profileToUse.directory}`));
       console.log(chalk.gray(`Mount point: ${profileToUse.mountPoint}`));
       console.log(chalk.gray(`Platform: ${platform}`));
-      
-      const child = spawn('node', args, {
+      if (finalCommServerUrl) {
+        console.log(chalk.gray(`Comm Server: ${finalCommServerUrl}`));
+      }
+
+      // Set up environment with CommServer URL
+      const childEnv = {
+        ...process.env
+      };
+      if (finalCommServerUrl) {
+        childEnv.REFINIO_COMM_SERVER_URL = finalCommServerUrl;
+      }
+
+      // Set working directory for Electron app
+      const cwd = platform === 'windows'
+        ? path.join(__dirname, '../../../electron-app')
+        : process.cwd();
+
+      const child = spawn(command, args, {
         stdio: options.background ? 'pipe' : 'inherit',
-        env: process.env,
-        detached: options.background
+        env: childEnv,
+        detached: options.background,
+        shell: platform === 'windows', // Required for .cmd files on Windows
+        cwd
       });
       
       if (options.background) {

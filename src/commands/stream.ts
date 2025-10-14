@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { QuicClient } from '../client/QuicClient';
-import { loadConfig, loadPersonKeys } from '../config';
+import { QuicClient } from '../client/QuicClient.js';
+import { loadConfig, loadPersonKeys } from '../config.js';
 
 async function createClient(): Promise<QuicClient> {
   const config = await loadConfig();

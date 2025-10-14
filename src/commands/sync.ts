@@ -179,7 +179,7 @@ syncCommand
         throw new Error(`Path not found: ${testPath}`);
       }
       
-      const expectedFiles = options.expected.split(',').map(s => s.trim());
+      const expectedFiles = options.expected.split(',').map((s: string) => s.trim());
       const actualFiles = fs.readdirSync(testPath);
       
       const found: string[] = [];

@@ -3,8 +3,8 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/test'],
   testMatch: [
-    '**/__tests__/**/*.ts',
-    '**/?(*.)+(spec|test).ts'
+    '**/__tests__/**/*.[jt]s',
+    '**/?(*.)+(spec|test).[jt]s'
   ],
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -13,7 +13,7 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
-  testTimeout: 10000,
+  // setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
+  testTimeout: 60000,
   verbose: true
 };

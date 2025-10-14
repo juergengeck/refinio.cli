@@ -4,6 +4,10 @@ import ora from 'ora';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const startCommand = new Command('start')
   .description('Start a refinio instance with filer support')
@@ -30,35 +34,18 @@ export const startCommand = new Command('start')
         fs.mkdirSync(dataDir, { recursive: true });
       }
       
-      // Build arguments for the main application
+      // Build arguments for starting the refinio.api server via CLI wrapper
+      const refinioApiPath = path.join(__dirname, '../../../refinio.api/dist/cli.js');
       const args = [
-        path.join(__dirname, '../../../lib/index.js'), // Path to main one.filer entry point
-        'start',
-        '-s', options.secret,
-        '-d', dataDir
+        refinioApiPath,
+        '--secret', options.secret,
+        '--directory', dataDir,
+        '--port', options.port
       ];
       
-      if (options.filer) {
-        args.push('--filer', 'true');
-        
-        if (platform === 'windows' && options.filerProjfsRoot) {
-          args.push('--filer-projfs-root', options.filerProjfsRoot);
-        } else if (platform !== 'windows' && options.filerMountPoint) {
-          args.push('--filer-mount-point', options.filerMountPoint);
-        }
-      }
-      
-      if (options.commServerUrl) {
-        args.push('--commServerUrl', options.commServerUrl);
-      }
-      
-      if (options.iomMode) {
-        args.push('--iom-mode', options.iomMode);
-      }
-      
-      if (options.logCalls) {
-        args.push('--log-calls');
-      }
+      // Note: filer, commServerUrl, iomMode options are CLI-specific
+      // and not passed to refinio.api server directly
+      // They would be handled by the CLI if needed
       
       const env = {
         ...process.env,

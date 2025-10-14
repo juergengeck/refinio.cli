@@ -5,7 +5,7 @@
 import { Command } from 'commander';
 import * as chalk from 'chalk';
 import ora from 'ora';
-import { QuicVCClient } from '../transport/QuicVCClient';
+import { QuicVCClient } from '../transport/QuicVCClient.js';
 
 export const testQuicvcCommand = new Command('test-quicvc')
     .description('Test QUICVC connection to local lama.electron instance')

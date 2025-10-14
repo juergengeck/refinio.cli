@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
-import { ClientConfig, PersonKeys } from './types';
+import { ClientConfig, PersonKeys } from './types.js';
 
 const defaultConfig: ClientConfig = {
   client: {

@@ -1,11 +1,13 @@
 import '@refinio/one.core/lib/system/load-nodejs.js';
 import { 
-  createEncryptionKeypair,
-  createSigningKeypair,
+  createKeyPair,
   encrypt,
-  decrypt,
-  SHA256Hash
-} from '@refinio/one.core';
+  decrypt
+} from '@refinio/one.core/lib/crypto/encryption.js';
+import {
+  createSignKeyPair
+} from '@refinio/one.core/lib/crypto/sign.js';
+import type { SHA256Hash } from '@refinio/one.core/lib/util/type-checks.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -265,10 +267,10 @@ export class CredentialManager {
    */
   async generatePersonKeys(email: string): Promise<InstanceCredential['personKeys']> {
     // Generate encryption keypair
-    const encryptionKeys = await createEncryptionKeypair();
+    const encryptionKeys = await createKeyPair();
     
     // Generate signing keypair
-    const signingKeys = await createSigningKeypair();
+    const signingKeys = await createSignKeyPair();
 
     // Create Person ID from public key
     const personData = {
@@ -285,9 +287,9 @@ export class CredentialManager {
     return {
       personId,
       publicKey: Buffer.from(encryptionKeys.publicKey).toString('hex'),
-      privateKey: Buffer.from(encryptionKeys.privateKey).toString('hex'),
+      privateKey: Buffer.from(encryptionKeys.secretKey).toString('hex'),
       signPublicKey: Buffer.from(signingKeys.publicKey).toString('hex'),
-      signPrivateKey: Buffer.from(signingKeys.privateKey).toString('hex')
+      signPrivateKey: Buffer.from(signingKeys.secretKey).toString('hex')
     };
   }
 

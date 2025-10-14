@@ -1,6 +1,6 @@
 import '@refinio/one.core/lib/system/load-nodejs.js';
-import { QuicClient } from './QuicClient';
-import { LocalCredentials } from '../credentials/LocalCredentials';
+import { QuicClient } from './QuicClient.js';
+import { LocalCredentials } from '../credentials/LocalCredentials.js';
 
 export class ProfileAwareClient extends QuicClient {
   private localCreds: LocalCredentials;
@@ -44,7 +44,7 @@ export class ProfileAwareClient extends QuicClient {
     const targetAlias = profileAlias || instance.defaultProfileAlias;
     if (targetAlias) {
       try {
-        const result = await this.getProfile({ nickname: targetAlias });
+        const result = await this.getProfile();
         if (result.profile) {
           this.profile = result.profile;
           

@@ -2,8 +2,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
-import { LocalCredentials } from '../credentials/LocalCredentials';
-import { QuicClient } from '../client/QuicClient';
+import { LocalCredentials } from '../credentials/LocalCredentials.js';
+import { QuicClient } from '../client/QuicClient.js';
 
 const localCreds = new LocalCredentials();
 

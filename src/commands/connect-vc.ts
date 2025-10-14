@@ -7,12 +7,11 @@
  */
 
 import { Command } from 'commander';
-
-const chalk = require('chalk');
-const ora = require('ora');
-const fs = require('fs/promises');
-const path = require('path');
-const os = require('os');
+import chalk from 'chalk';
+import ora from 'ora';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 
 interface StoredInvitation {
     token: string;
@@ -47,10 +46,11 @@ export const connectVcCommand = new Command('connect-vc')
             // Select invitation to use
             let invitation: StoredInvitation;
             if (options.invitation) {
-                invitation = invitations.find((inv: StoredInvitation) => inv.id === options.invitation);
-                if (!invitation) {
+                const foundInvitation = invitations.find((inv: StoredInvitation) => inv.id === options.invitation);
+                if (!foundInvitation) {
                     throw new Error(`Invitation with ID ${options.invitation} not found`);
                 }
+                invitation = foundInvitation;
             } else {
                 // Use the most recent invitation
                 invitation = invitations[invitations.length - 1];
@@ -65,7 +65,7 @@ export const connectVcCommand = new Command('connect-vc')
             spinner.start('Creating Verifiable Credential from invitation...');
             
             // Import and use the QuicVC client with direct VC authentication
-            const { QuicVCWithDirectAuth } = await import('../transport/QuicVCWithDirectAuth');
+            const { QuicVCWithDirectAuth } = await import('../transport/QuicVCWithDirectAuth.js');
             
             const client = new QuicVCWithDirectAuth();
             
@@ -152,7 +152,7 @@ export const connectVcCommand = new Command('connect-vc')
             console.log(chalk.gray('  Ctrl+C - Force quit\n'));
             
             // Set up interactive input
-            const readline = require('readline').createInterface({
+            const readline = (await import('readline')).createInterface({
                 input: process.stdin,
                 output: process.stdout,
                 prompt: chalk.cyan('vc> ')

@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs/promises';
-import { createProfileClient } from '../client/ProfileAwareClient';
+import { createProfileClient } from '../client/ProfileAwareClient.js';
 
 async function createClient(profileAlias?: string): Promise<any> {
   return createProfileClient(profileAlias);

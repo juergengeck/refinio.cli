@@ -39,7 +39,11 @@ export enum MessageType {
   PROFILE_GET = 'profile.get',
   PROFILE_UPDATE = 'profile.update',
   PROFILE_DELETE = 'profile.delete',
-  PROFILE_LIST = 'profile.list'
+  PROFILE_LIST = 'profile.list',
+
+  // Connection & Contact Operations
+  CONTACTS_LIST = 'contacts.list',
+  CONTACTS_RESPONSE = 'contacts.response'
 }
 
 export interface PersonKeys {

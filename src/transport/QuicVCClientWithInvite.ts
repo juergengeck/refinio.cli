@@ -5,7 +5,7 @@
  * from lama.electron or one.leute for authentication.
  */
 
-import { QuicVCClient, QuicVCCredential, QuicVCConnection } from './QuicVCClient';
+import { QuicVCClient, QuicVCCredential, QuicVCConnection } from './QuicVCClient.js';
 import * as tweetnacl from 'tweetnacl';
 import { createHash } from 'crypto';
 

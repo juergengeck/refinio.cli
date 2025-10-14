@@ -1,9 +1,8 @@
-import '@refinio/one.core/lib/system/load-nodejs.js';
-import { getQuicTransport } from '@refinio/one.core/lib/system/quic-transport.js';
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
-import { Message, MessageType } from '../types';
-import { PersonKeys } from '../types';
+import WebSocket from 'ws';
+import { Message, MessageType } from '../types.js';
+import { PersonKeys } from '../types.js';
 
 export interface QuicClientOptions {
   serverUrl: string;
@@ -13,8 +12,7 @@ export interface QuicClientOptions {
 
 export class QuicClient extends EventEmitter {
   protected options: QuicClientOptions;
-  private quicTransport: any;
-  private connection: any;
+  private ws: WebSocket | null = null;
   private pendingRequests: Map<string, any> = new Map();
   private session: any = null;
   private personKeys: PersonKeys | null = null;
@@ -24,40 +22,42 @@ export class QuicClient extends EventEmitter {
   constructor(options: QuicClientOptions) {
     super();
     this.options = options;
-    
-    // Parse server URL
+
+    // Parse server URL (quic:// is WebSocket-based for now)
     const url = new URL(this.options.serverUrl.replace('quic://', 'http://'));
     this.serverAddress = url.hostname;
     this.serverPort = parseInt(url.port) || 49498;
   }
 
   async connect() {
-    // Get QUIC transport from one.core
-    this.quicTransport = getQuicTransport();
-    if (!this.quicTransport) {
-      throw new Error('QUIC transport not initialized');
-    }
-    
-    // Connect to server
-    this.connection = await this.quicTransport.connect({
-      host: this.serverAddress,
-      port: this.serverPort
-    });
-    
-    // Handle incoming messages
-    this.connection.on('message', (data: any) => {
-      try {
-        const message = JSON.parse(data.toString()) as Message;
-        this.handleMessage(message);
-      } catch (error) {
-        console.error('Failed to parse message:', error);
-      }
-    });
-    
-    // Handle connection errors
-    this.connection.on('error', (err: Error) => {
-      console.error('Connection error:', err);
-      this.emit('error', err);
+    // Connect via WebSocket (QUIC passthrough)
+    const wsUrl = `ws://${this.serverAddress}:${this.serverPort}`;
+
+    return new Promise<void>((resolve, reject) => {
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.on('open', () => {
+        resolve();
+      });
+
+      this.ws.on('message', (data: Buffer) => {
+        try {
+          const message = JSON.parse(data.toString()) as Message;
+          this.handleMessage(message);
+        } catch (error) {
+          console.error('Failed to parse message:', error);
+        }
+      });
+
+      this.ws.on('error', (err: Error) => {
+        console.error('Connection error:', err);
+        this.emit('error', err);
+        reject(err);
+      });
+
+      this.ws.on('close', () => {
+        this.emit('close');
+      });
     });
   }
 
@@ -81,7 +81,7 @@ export class QuicClient extends EventEmitter {
   }
 
   async sendRequest(type: MessageType, payload: any): Promise<any> {
-    if (!this.connection) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('Client not connected');
     }
 
@@ -112,8 +112,8 @@ export class QuicClient extends EventEmitter {
         }
       });
 
-      // Send message via QUIC connection
-      this.connection.send(JSON.stringify(message));
+      // Send message via WebSocket
+      this.ws!.send(JSON.stringify(message));
     });
   }
 
@@ -241,9 +241,9 @@ export class QuicClient extends EventEmitter {
   }
 
   async disconnect() {
-    if (this.connection) {
-      await this.connection.close();
-      this.connection = null;
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
   }
 }

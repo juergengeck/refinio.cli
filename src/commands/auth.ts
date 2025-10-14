@@ -3,8 +3,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs/promises';
 import path from 'path';
-import { QuicClient } from '../client/QuicClient';
-import { loadConfig, savePersonKeys, loadPersonKeys, generatePersonKeys } from '../config';
+import { QuicClient } from '../client/QuicClient.js';
+import { loadConfig, savePersonKeys, loadPersonKeys, generatePersonKeys } from '../config.js';
 
 export const authCommand = new Command('auth')
   .description('Authentication commands');

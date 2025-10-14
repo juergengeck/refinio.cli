@@ -1,10 +1,12 @@
 import '@refinio/one.core/lib/system/load-nodejs.js';
 import { 
-  createEncryptionKeypair,
-  createSigningKeypair,
+  createKeyPair,
   encrypt,
   decrypt
-} from '@refinio/one.core';
+} from '@refinio/one.core/lib/crypto/encryption.js';
+import {
+  createSignKeyPair
+} from '@refinio/one.core/lib/crypto/sign.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -136,8 +138,8 @@ export class LocalCredentials {
    * Generate new Person keys
    */
   async generatePersonKeys(email: string): Promise<LocalCredential['personKeys']> {
-    const encryptionKeys = await createEncryptionKeypair();
-    const signingKeys = await createSigningKeypair();
+    const encryptionKeys = await createKeyPair();
+    const signingKeys = await createSignKeyPair();
 
     const personData = {
       email,
@@ -153,9 +155,9 @@ export class LocalCredentials {
     return {
       personId,
       publicKey: Buffer.from(encryptionKeys.publicKey).toString('hex'),
-      privateKey: Buffer.from(encryptionKeys.privateKey).toString('hex'),
+      privateKey: Buffer.from(encryptionKeys.secretKey).toString('hex'),
       signPublicKey: Buffer.from(signingKeys.publicKey).toString('hex'),
-      signPrivateKey: Buffer.from(signingKeys.privateKey).toString('hex')
+      signPrivateKey: Buffer.from(signingKeys.secretKey).toString('hex')
     };
   }
 

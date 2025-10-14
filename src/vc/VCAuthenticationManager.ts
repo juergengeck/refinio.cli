@@ -6,8 +6,23 @@
  * that can be exchanged directly between peers via QUICVC or other transports.
  */
 
-import * as tweetnacl from 'tweetnacl';
-import { createHash } from 'crypto';
+import {
+    createKeyPair,
+    ensurePublicKey,
+    createRandomNonce,
+    type KeyPair,
+    type PublicKey,
+    type SecretKey
+} from '@refinio/one.core/lib/crypto/encryption.js';
+import {
+    createSignKeyPair,
+    sign as signData,
+    signatureVerify,
+    type SignKeyPair,
+    type PublicSignKey,
+    type SecretSignKey
+} from '@refinio/one.core/lib/crypto/sign.js';
+import { createRandomString } from '@refinio/one.core/lib/system/crypto-helpers.js';
 import { EventEmitter } from 'events';
 
 // ONE Platform compatible types
@@ -68,22 +83,22 @@ export interface VerifiedPeer {
 }
 
 export class VCAuthenticationManager extends EventEmitter {
-    private ownKeypair: tweetnacl.BoxKeyPair;
-    private signKeypair: tweetnacl.SignKeyPair;
+    private ownKeypair: KeyPair;
+    private signKeypair: SignKeyPair;
     private invitations: Map<string, InvitationData> = new Map();
     private verifiedPeers: Map<string, VerifiedPeer> = new Map();
     private pendingChallenges: Map<string, string> = new Map();
     private ownCredential: DeviceIdentityCredential | null = null;
     private deviceId: string;
-    
+
     constructor() {
         super();
-        
+
         // Generate keypairs for encryption and signing
-        this.ownKeypair = tweetnacl.box.keyPair();
-        this.signKeypair = tweetnacl.sign.keyPair();
+        this.ownKeypair = createKeyPair();
+        this.signKeypair = createSignKeyPair();
         this.deviceId = this.generateDeviceId();
-        
+
         console.log('[VCAuthManager] Initialized with device ID:', this.deviceId);
     }
     
@@ -182,6 +197,9 @@ export class VCAuthenticationManager extends EventEmitter {
             if (this.invitations.size > 0) {
                 // Use the first invitation
                 const invitation = this.invitations.values().next().value;
+                if (!invitation) {
+                    throw new Error('No invitations available');
+                }
                 this.ownCredential = this.createCredentialFromInvitation(invitation);
             } else {
                 // Create a self-signed credential
@@ -391,13 +409,13 @@ export class VCAuthenticationManager extends EventEmitter {
     private signCredential(credential: DeviceIdentityCredential): string {
         const credentialCopy = { ...credential };
         delete (credentialCopy as any).proof.proofValue;
-        
+
         const message = JSON.stringify(credentialCopy, Object.keys(credentialCopy).sort());
-        const signature = tweetnacl.sign.detached(
+        const signature = signData(
             Buffer.from(message),
             this.signKeypair.secretKey
         );
-        
+
         return Buffer.from(signature).toString('hex');
     }
     
@@ -447,14 +465,17 @@ export class VCAuthenticationManager extends EventEmitter {
     }
     
     private generateDeviceId(): string {
+        // Use a simple random string for device ID (sync function)
         return `cli-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     }
     
     private generateUUID(): string {
-        const bytes = tweetnacl.randomBytes(16);
+        // Generate random bytes for UUID v4
+        const nonce = createRandomNonce();
+        const bytes = nonce.slice(0, 16);
         bytes[6] = (bytes[6] & 0x0f) | 0x40;
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        
+
         const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
         return [
             hex.slice(0, 8),
@@ -466,10 +487,15 @@ export class VCAuthenticationManager extends EventEmitter {
     }
     
     private generateChallenge(): string {
-        return Buffer.from(tweetnacl.randomBytes(32)).toString('hex');
+        const nonce = createRandomNonce();
+        const challengeBytes = new Uint8Array(32);
+        challengeBytes.set(nonce.slice(0, 24), 0);
+        challengeBytes.set(nonce.slice(0, 8), 24);
+        return Buffer.from(challengeBytes).toString('hex');
     }
     
     private generateNonce(): string {
-        return Buffer.from(tweetnacl.randomBytes(16)).toString('hex');
+        const nonce = createRandomNonce();
+        return Buffer.from(nonce.slice(0, 16)).toString('hex');
     }
 }
