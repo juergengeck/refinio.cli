@@ -3,22 +3,25 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { LocalCredentials } from './credentials/LocalCredentials';
-import { createProfileClient } from './client/ProfileAwareClient';
-import { authCommand } from './commands/auth';
-import { crudCommands } from './commands/crud';
-import { recipeCommand } from './commands/recipe';
-import { streamCommand } from './commands/stream';
-import { profileCommand } from './commands/profile';
-import { connectCommand, disconnectCommand, instancesCommand } from './commands/connect';
-import { testQuicvcCommand } from './commands/test-quicvc';
-import { inviteCommand } from './commands/invite';
-import { connectLocalCommand } from './commands/connect-local';
-import { connectVcCommand } from './commands/connect-vc';
-import { syncCommand } from './commands/sync';
-import { debugCommand } from './commands/debug';
-import { filerCommand } from './commands/filer';
-import { startCommand, stopCommand, listCommand } from './commands/start';
+import { LocalCredentials } from './credentials/LocalCredentials.js';
+import { createProfileClient } from './client/ProfileAwareClient.js';
+import { authCommand } from './commands/auth.js';
+import { crudCommands } from './commands/crud.js';
+import { recipeCommand } from './commands/recipe.js';
+import { streamCommand } from './commands/stream.js';
+import { profileCommand } from './commands/profile.js';
+import { contactsCommand } from './commands/contacts.js';
+import { connectionsCommand } from './commands/connections.js';
+import { connectCommand, disconnectCommand, instancesCommand } from './commands/connect.js';
+import { testQuicvcCommand } from './commands/test-quicvc.js';
+import { inviteCommand } from './commands/invite.js';
+import { inviteConnectCommand } from './commands/invite-connect.js';
+import { connectLocalCommand } from './commands/connect-local.js';
+import { connectVcCommand } from './commands/connect-vc.js';
+import { syncCommand } from './commands/sync.js';
+import { debugCommand } from './commands/debug.js';
+import { filerCommand } from './commands/filer.js';
+import { startCommand, stopCommand, listCommand } from './commands/start.js';
 
 const program = new Command();
 
@@ -37,6 +40,12 @@ program.addCommand(instancesCommand);
 // Add profile command
 program.addCommand(profileCommand);
 
+// Add contacts command
+program.addCommand(contactsCommand);
+
+// Add connections command
+program.addCommand(connectionsCommand);
+
 // Add auth command
 program.addCommand(authCommand);
 
@@ -54,6 +63,9 @@ program.addCommand(testQuicvcCommand);
 
 // Add invite command
 program.addCommand(inviteCommand);
+
+// Add invite-connect command
+program.addCommand(inviteConnectCommand);
 
 // Add connect-local command
 program.addCommand(connectLocalCommand);
@@ -90,7 +102,7 @@ async function checkProfileShortcut(argv: string[]): Promise<string[]> {
   const potentialProfile = argv[2];
   
   // Skip if it starts with - (it's a flag) or is a known command
-  const knownCommands = ['connect', 'disconnect', 'instances', 'profile', 'auth', 'create', 'get', 'update', 'delete', 'list', 'recipe', 'stream', 'test-quicvc', 'invite', 'connect-local', 'connect-vc', 'sync', 'debug', 'filer', 'start', 'stop'];
+  const knownCommands = ['connect', 'disconnect', 'instances', 'profile', 'contacts', 'connections', 'auth', 'create', 'get', 'update', 'delete', 'list', 'recipe', 'stream', 'test-quicvc', 'invite', 'invite-connect', 'connect-local', 'connect-vc', 'sync', 'debug', 'filer', 'start', 'stop'];
   if (potentialProfile.startsWith('-') || knownCommands.includes(potentialProfile)) {
     return argv;
   }
@@ -147,19 +159,19 @@ async function main() {
   try {
     // Check for profile shortcut
     const modifiedArgv = await checkProfileShortcut(process.argv);
-    
+
     await program.parseAsync(modifiedArgv);
   } catch (error: any) {
-    if (error.code === 'commander.help') {
+    if (error.code === 'commander.help' || error.code === 'commander.version') {
       process.exit(0);
     }
-    
+
     console.error(chalk.red('Error:'), error.message);
-    
+
     if (program.opts().verbose) {
       console.error(error.stack);
     }
-    
+
     process.exit(1);
   }
 }

@@ -6,10 +6,12 @@
  */
 
 import { Command } from 'commander';
-
-const chalk = require('chalk');
-const ora = require('ora');
-const WebSocket = require('ws');
+import chalk from 'chalk';
+import ora from 'ora';
+import WebSocket from 'ws';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 
 interface Invitation {
     token: string;
@@ -126,6 +128,67 @@ inviteCommand
             console.log(chalk.green('✓ All invitations cleared'));
         } catch (error: any) {
             console.error(chalk.red('Error:'), error.message);
+            process.exit(1);
+        }
+    });
+
+// Add subcommand to create invitations via refinio.api
+inviteCommand
+    .command('create')
+    .description('Create a new invitation for pairing via refinio.api')
+    .option('-a, --api-url <url>', 'Refinio API URL', 'http://localhost:49498')
+    .option('-v, --verbose', 'Verbose output')
+    .action(async (options: any) => {
+        const spinner = ora('Creating invitation...').start();
+
+        try {
+            // Import fetch dynamically
+            const fetch = (await import('node-fetch')).default;
+
+            // Call REST API endpoint to create invite
+            const response = await fetch(`${options.apiUrl}/api/connections/create-invite`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API returned status ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json() as any;
+
+            if (!result.inviteUrl) {
+                throw new Error('No invite URL in response');
+            }
+
+            spinner.succeed('Invitation created successfully');
+
+            console.log(chalk.green('\n✓ Invitation created!'));
+            console.log(chalk.cyan('\nInvite URL:'));
+            console.log(chalk.yellow(result.inviteUrl));
+
+            // Save to file for convenience
+            const inviteFile = path.join(os.homedir(), '.refinio', 'latest-invite.txt');
+            await fs.mkdir(path.dirname(inviteFile), { recursive: true });
+            await fs.writeFile(inviteFile, result.inviteUrl);
+
+            console.log(chalk.gray(`\nSaved to: ${inviteFile}`));
+            console.log(chalk.gray('\nShare this URL with someone to establish a connection.'));
+
+        } catch (error: any) {
+            spinner.fail('Failed to create invitation');
+            console.error(chalk.red('\nError:'), error.message);
+            console.log(chalk.yellow('\nMake sure refinio.api is running:'));
+            console.log(chalk.gray(`  Check status: curl ${options.apiUrl}/health`));
+
+            if (options.verbose && error.stack) {
+                console.error(chalk.gray('\nStack trace:'));
+                console.error(chalk.gray(error.stack));
+            }
+
             process.exit(1);
         }
     });
