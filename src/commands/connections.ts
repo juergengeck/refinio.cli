@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import fetch from 'node-fetch';
+import { createApiClient } from '../client/ApiClient.js';
 
 export const connectionsCommand = new Command('connections')
   .description('List active connections')
-  .option('-a, --api-url <url>', 'Refinio API URL', 'http://localhost:49498')
+  .option('-a, --api-url <url>', 'Refinio API URL', process.env.REFINIO_API_URL || 'http://localhost:49498')
   .option('-j, --json', 'Output in JSON format')
   .option('-w, --watch', 'Watch connections (refresh every 2 seconds)')
   .action(async (options) => {
@@ -13,7 +13,10 @@ export const connectionsCommand = new Command('connections')
       const spinner = ora('Fetching connections...').start();
 
       try {
-        // Call REST API endpoint
+        // Use dynamic API client (legacy REST endpoint fallback)
+        const client = createApiClient(options.apiUrl);
+
+        // Try using the direct REST endpoint for backward compatibility
         const response = await fetch(`${options.apiUrl}/api/connections`);
 
         if (!response.ok) {

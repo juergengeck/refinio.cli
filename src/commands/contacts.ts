@@ -1,24 +1,25 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import fetch from 'node-fetch';
+import { createApiClient } from '../client/ApiClient.js';
 
 export const contactsCommand = new Command('contacts')
   .description('List all contacts')
-  .option('-a, --api-url <url>', 'Refinio API URL', 'http://localhost:49498')
+  .option('-a, --api-url <url>', 'Refinio API URL', process.env.REFINIO_API_URL || 'http://localhost:49498')
   .option('-j, --json', 'Output in JSON format')
   .action(async (options) => {
     const spinner = ora('Fetching contacts...').start();
 
     try {
-      // Call REST API endpoint
-      const response = await fetch(`${options.apiUrl}/api/contacts`);
+      // Use dynamic API client - execute one.leute.getContacts plan
+      const client = createApiClient(options.apiUrl);
+      const story = await client.execute('one.leute', 'getContacts', {});
 
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`);
+      if (!story.success) {
+        throw new Error(story.error?.message || 'Failed to fetch contacts');
       }
 
-      const contacts = await response.json() as any[];
+      const contacts = story.data as any[];
 
       spinner.stop();
 

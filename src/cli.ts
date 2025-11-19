@@ -23,6 +23,15 @@ import { debugCommand } from './commands/debug.js';
 import { filerCommand } from './commands/filer.js';
 import { startCommand, stopCommand, listCommand } from './commands/start.js';
 
+// New dynamic Plan-based commands
+import { apiCommand } from './commands/api.js';
+import { execCommand } from './commands/exec.js';
+import { storageCommand } from './commands/storage.js';
+import { channelsCommand } from './commands/channels.js';
+import { groupsCommand } from './commands/groups.js';
+import { cryptoCommand } from './commands/crypto.js';
+import { instanceCommand } from './commands/instance.js';
+
 const program = new Command();
 
 program
@@ -86,6 +95,15 @@ program.addCommand(filerCommand);
 program.addCommand(startCommand);
 program.addCommand(stopCommand);
 program.addCommand(listCommand);
+
+// Add dynamic Plan-based commands (Phase 1-3)
+program.addCommand(apiCommand);        // Phase 1: Plan discovery
+program.addCommand(execCommand);       // Phase 2: Universal executor
+program.addCommand(storageCommand);    // Phase 3: Storage convenience commands
+program.addCommand(channelsCommand);   // Phase 3: Channels convenience commands
+program.addCommand(groupsCommand);     // Phase 3: Groups convenience commands
+program.addCommand(cryptoCommand);     // Phase 3: Crypto convenience commands
+program.addCommand(instanceCommand);   // Phase 3: Instance convenience commands
 
 // Global options
 program
