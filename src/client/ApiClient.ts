@@ -11,15 +11,13 @@ export interface PlanTransaction {
   params: any;
 }
 
-export interface StoryResult<T = any> {
-  success: boolean;
+/**
+ * Execution Result - Plan + Product
+ * On error, execute() throws - no error property needed.
+ */
+export interface ExecutionResult<T = any> {
   plan: PlanTransaction;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-  };
+  product: T;
   timestamp: number;
   executionTime?: number;
 }
@@ -76,7 +74,7 @@ export class ApiClient {
     plan: string,
     method: string,
     params?: any
-  ): Promise<StoryResult<T>> {
+  ): Promise<ExecutionResult<T>> {
     const url = `${this.baseUrl}/api/${plan}/${method}`;
 
     try {
@@ -117,16 +115,16 @@ export class ApiClient {
 
       const result: any = await response.json();
 
-      // If result is already a Story, return it
+      // If result is already an ExecutionResult, return it
       if (result.plan && typeof result.success === 'boolean') {
-        return result as StoryResult<T>;
+        return result as ExecutionResult<T>;
       }
 
-      // Otherwise wrap in Story format
+      // Otherwise wrap in ExecutionResult format
       return {
         success: true,
         plan: { plan, method, params },
-        data: result as T,
+        product: result as T,
         timestamp: Date.now()
       };
     } catch (error: any) {
