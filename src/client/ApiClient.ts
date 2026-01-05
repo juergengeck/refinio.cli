@@ -12,12 +12,18 @@ export interface PlanTransaction {
 }
 
 /**
- * Execution Result - Plan + Product
- * On error, execute() throws - no error property needed.
+ * Execution Result from refinio.api REST API
+ * Matches RestTransport response format: { success, data?, error? }
  */
 export interface ExecutionResult<T = any> {
+  success: boolean;
   plan: PlanTransaction;
-  product: T;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
   timestamp: number;
   executionTime?: number;
 }
@@ -115,16 +121,22 @@ export class ApiClient {
 
       const result: any = await response.json();
 
-      // If result is already an ExecutionResult, return it
-      if (result.plan && typeof result.success === 'boolean') {
-        return result as ExecutionResult<T>;
+      // API returns { success, data?, error? } - wrap in ExecutionResult format
+      if (typeof result.success === 'boolean') {
+        return {
+          success: result.success,
+          plan: { plan, method, params },
+          data: result.data as T,
+          error: result.error,
+          timestamp: Date.now()
+        };
       }
 
-      // Otherwise wrap in ExecutionResult format
+      // Fallback: raw result without success wrapper
       return {
         success: true,
         plan: { plan, method, params },
-        product: result as T,
+        data: result as T,
         timestamp: Date.now()
       };
     } catch (error: any) {
